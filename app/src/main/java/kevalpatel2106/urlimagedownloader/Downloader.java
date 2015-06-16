@@ -28,11 +28,12 @@ public class Downloader {
     private final ArrayList<DownloadItems> downloadQueue;
     private static Downloader imageDownloader;
     private final String storagePath;
+    private boolean isAsyncTaskFinished = true;
 
     /*@param: context of the caller activity
      */
     private Downloader(Context context) {
-        downloadQueue = new ArrayList<>();
+        downloadQueue = new ArrayList<DownloadItems>();
         this.context = context;
 
         //create the storage dir where we are going to store the downloaded data
@@ -53,109 +54,123 @@ public class Downloader {
 
     public void addNewUrl(final String urlOfImage, final ImageView imageView) {
         //Add new url and respective imageView to downloadQueue
+        Log.d("downloader Adding item", urlOfImage + " " + imageView + " " + downloadQueue.size());
         DownloadItems downloadItems = new DownloadItems();
         downloadItems.imageView = imageView;
         downloadItems.url = urlOfImage;
         downloadQueue.add(downloadItems);
-        if (downloadFileAync.getStatus() != AsyncTask.Status.RUNNING) {
+        if (isAsyncTaskFinished) {
+            Log.d("downloader starting", "Task" + downloadQueue.size());
             //if no async task running than...
-            downloadFileAync.execute();
+            new AsyncTask<Void, DownloadItems, Void>() {
+
+                @Override
+                protected void onPreExecute() {
+                    super.onPreExecute();
+                    isAsyncTaskFinished = false;
+                }
+
+                @Override
+                protected Void doInBackground(Void... voids) {
+                    /* this method downloads an Image from the given URL,
+                    * than downloads the image and publish the update so that
+                    * it can show the image in the given image viewer
+                    */
+
+                    for (int i = 0; i < downloadQueue.size(); i++) {
+                        Log.d("downloader image number", i + "");
+                        HttpURLConnection connection = null;
+                        InputStream input = null;
+                        OutputStream output = null;
+
+                        //url of the image
+                        final String urlDownload = downloadQueue.get(i).url;
+                        File file = null;   //file that will store image downloaded
+
+                        try {
+                            if (needDownload(urlDownload)) {
+                                Log.d("downloader file", "downloading " + needDownload(urlDownload));
+                                //create URL
+                                URL url = null;
+                                try {
+                                    url = new URL(urlDownload);
+                                } catch (MalformedURLException e) {
+                                    e.printStackTrace();
+                                }
+
+                                if (url != null)
+                                    connection = (HttpURLConnection) url.openConnection();
+
+                                if (connection != null) {
+                                    //Connection
+                                    connection.setDoInput(true);
+                                    connection.setReadTimeout(15000);
+                                    connection.setConnectTimeout(15000);
+                                    connection.connect();
+
+                                    // download the file
+                                    input = new BufferedInputStream(url.openStream());
+
+                                    //write to the file
+                                    file = generateFile(urlDownload);
+                                    output = new FileOutputStream(file);
+                                    int dataInt;
+                                    while ((dataInt = input.read()) != -1) {
+                                        output.write(dataInt);
+                                    }
+                                }
+                            } else {
+                                Log.d("downloader file", "skipping");
+                                file = generateFile(urlDownload);
+                            }
+
+                            //set last modified timestamp so will be useful to clear the cache
+                            file.setLastModified(System.currentTimeMillis());
+
+                            //publishing the update
+                            DownloadItems items = new DownloadItems();
+                            items.imageView = downloadQueue.get(i).imageView;
+                            items.imageBitmap = decodeBitmap(file);
+                            publishProgress(items);
+
+                            //clear the download queue if all the urls are downloaded
+                            if (i == downloadQueue.size() - 1) {
+                                Log.d("downloader clear", "task");
+                                clearDownloadQueue();
+                            }
+                        } catch (IOException | NullPointerException e) {
+                            //delete the file if any exception generated
+                            e.printStackTrace();
+                        } finally {
+                            if (connection != null) connection.disconnect();
+                            try {
+                                if (input != null) input.close();
+                                if (output != null) output.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                    return null;
+                }
+
+
+                @Override
+                protected void onProgressUpdate(DownloadItems... downloadItemes) {
+                    super.onProgressUpdate(downloadItemes);
+                    Log.d("downloader update", "published" + downloadItemes[0].imageView + downloadItemes[0].imageBitmap);
+                    //show the bitmap into imageViewer
+                    downloadItemes[0].imageView.setImageBitmap(downloadItemes[0].imageBitmap);
+                }
+
+                @Override
+                protected void onPostExecute(Void aVoid) {
+                    super.onPostExecute(aVoid);
+                    isAsyncTaskFinished = true;
+                }
+            }.execute();
         }
     }
-
-    private AsyncTask<Void, DownloadItems, Void> downloadFileAync = new AsyncTask<Void, DownloadItems, Void>() {
-        @Override
-        protected Void doInBackground(Void... voids) {
-             /* this method downloads an Image from the given URL,
-              * than downloads the image and publish the update so that
-              * it can show the image in the given image viewer
-              */
-
-            for (int i = 0; i < downloadQueue.size(); i++) {
-                Log.d("i", i + "");
-                HttpURLConnection connection = null;
-                InputStream input = null;
-                OutputStream output = null;
-
-                //url of the image
-                final String urlDownload = downloadQueue.get(i).url;
-                File file = null;   //file that will store image downloaded
-
-                try {
-                    if (needDownload(urlDownload)) {
-                        Log.d("file", "downloading");
-                        //create URL
-                        URL url = null;
-                        try {
-                            url = new URL(urlDownload);
-                        } catch (MalformedURLException e) {
-                            e.printStackTrace();
-                        }
-
-                        if (url != null) connection = (HttpURLConnection) url.openConnection();
-
-                        if (connection != null) {
-                            //Connection
-                            connection.setDoInput(true);
-                            connection.setReadTimeout(15000);
-                            connection.setConnectTimeout(15000);
-                            connection.connect();
-
-                            // download the file
-                            input = new BufferedInputStream(url.openStream());
-
-                            //write to the file
-                            file = generateFile(urlDownload);
-                            output = new FileOutputStream(file);
-                            int dataInt;
-                            while ((dataInt = input.read()) != -1) {
-                                output.write(dataInt);
-                            }
-                        } else {
-                            Log.d("file", "skipping");
-                            file = generateFile(urlDownload);
-                        }
-
-                        //set last modified timestamp so will be useful to clear the cache
-                        file.setLastModified(System.currentTimeMillis());
-
-                        //publishing the update
-                        DownloadItems items = new DownloadItems();
-                        items.imageView = downloadQueue.get(i).imageView;
-                        items.imageBitmap = decodeBitmap(file);
-                        publishProgress(items);
-
-                        //clear the download queue if all the urls are downloaded
-                        if (i == downloadQueue.size() - 1) {
-                            Log.d("clear", "task");
-                            clearDownloadQueue();
-                            downloadFileAync.cancel(true);
-                        }
-                    }
-                } catch (IOException | NullPointerException e) {
-                    //delete the file if any exception generated
-                    e.printStackTrace();
-                } finally {
-                    if (connection != null) connection.disconnect();
-                    try {
-                        if (input != null) input.close();
-                        if (output != null) output.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            return null;
-        }
-
-        @Override
-        protected void onProgressUpdate(DownloadItems... downloadItemes) {
-            super.onProgressUpdate(downloadItemes);
-            Log.d("update", "published");
-            //show the bitmap into imageViewer
-            downloadItemes[0].imageView.setImageBitmap(downloadItemes[0].imageBitmap);
-        }
-    };
 
     public void clearDownloadQueue() {
         //clear the download queue
@@ -173,7 +188,7 @@ public class Downloader {
         return !new File(storagePath + "/" + filename).exists();
     }
 
-    private File generateFile(String url) {
+    private File generateFile(final String url) {
         //Generating the file name
         String[] s = url.split("/");
         String filename = s[s.length - 1];

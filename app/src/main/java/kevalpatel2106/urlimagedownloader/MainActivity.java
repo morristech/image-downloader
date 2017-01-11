@@ -8,6 +8,8 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.ail.AndroidImageLoader;
+
 /**
  * Created by KP on 12-Jun-15.
  * Main activity.
@@ -31,13 +33,18 @@ public class MainActivity extends AppCompatActivity {
         ImageView imageView4 = (ImageView) findViewById(R.id.imageView4);
 
         //urls to download (This all urls are for example.)
-        mImageUrls = new String[]{"http://www.gettyimages.in/gi-resources/images/Homepage/Category-Creative/UK/UK_Creative_462809583.jpg",
+        mImageUrls = new String[]{
                 "http://www.hdwallpapersimages.com/wp-content/uploads/2014/01/Winter-Tiger-Wild-Cat-Images.jpg",
                 "http://blog.jimdo.com/wp-content/uploads/2014/01/tree-247122.jpg",
                 "http://saturn.jpl.nasa.gov/multimedia/images/moons/images/PIA07759.jpg"};
 
         //image views to display downloaded images. (you can pass null if you don't want to display images.)
-        mImageViews = new ImageView[]{imageView1, imageView2, imageView3, imageView4};
+        mImageViews = new ImageView[]{imageView2, imageView3, imageView4};
+
+        AndroidImageLoader
+                .with(this)
+                .load("http://www.gettyimages.in/gi-resources/images/Homepage/Category-Creative/UK/UK_Creative_462809583.jpg")
+                .into(imageView1);
     }
 
     public void startLoadImage(View view) {

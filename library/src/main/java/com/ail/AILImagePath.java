@@ -14,15 +14,27 @@ class AILImagePath {
 
     private String path;
 
-    AILImagePath(Uri uri){
+    AILImagePath(Uri uri) {
 
     }
 
-    AILImagePath(String uri){
+    AILImagePath(String uri) {
 
     }
 
-    AILImagePath(URL uri){
+    AILImagePath(URL uri) {
 
+    }
+
+    boolean equal(String path) {
+        return this.path.equals(path);
+    }
+
+    boolean equal(Uri path) {
+        return this.path.equals(path.toString());
+    }
+
+    boolean equal(URL path) {
+        return this.path.equals(path.toString());
     }
 }

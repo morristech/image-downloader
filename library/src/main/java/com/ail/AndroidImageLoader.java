@@ -30,7 +30,6 @@ public class AndroidImageLoader {
         return new AndroidImageLoader(activity);
     }
 
-
     public AndroidImageLoader load(Uri uri) {
         mAILImage.setImagePath(new AILImagePath(uri));
         return this;
@@ -52,8 +51,25 @@ public class AndroidImageLoader {
         return this;
     }
 
-    public AndroidImageLoader into(ImageView imageView) {
+    public void into(ImageView imageView) {
         mAILImage.setImageView(imageView);
-        return this;
+
+        AILQueue.getInstance().add(mAILImage);
+    }
+
+//    public void remove(String path){
+//        AILQueue.getInstance().removeByPath(path);
+//    }
+
+    public void remove(String uid){
+        AILQueue.getInstance().removeByUid(uid);
+    }
+
+    public void remove(Uri uri){
+        AILQueue.getInstance().removeByUri(uri);
+    }
+
+    public void remove(URL url){
+        AILQueue.getInstance().removeByUrl(url);
     }
 }
